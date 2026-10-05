@@ -70,8 +70,11 @@ student_id = f"IT{suffix}"
 roll_number = f"IT-{suffix}"
 subject_id = f"IT{suffix}"
 subject_code = f"IT{suffix}"
+second_subject_id = f"IT2{suffix}"
+second_subject_code = f"IT2{suffix}"
 student_created = False
 subject_created = False
+second_subject_created = False
 try:
     cohort = students["students"][0]
     subject_payload = {
@@ -84,6 +87,17 @@ try:
     status_code, body = api_call("/api/subjects", "POST", subject_payload)
     assert status_code == 201, body.decode("utf-8")
     subject_created = True
+
+    second_subject_payload = {
+        "subject_id": second_subject_id,
+        "subject_code": second_subject_code,
+        "subject_name": "Integration Test Subject 2",
+        "class_name": cohort["class_name"],
+        "section": cohort["section"]
+    }
+    status_code, body = api_call("/api/subjects", "POST", second_subject_payload)
+    assert status_code == 201, body.decode("utf-8")
+    second_subject_created = True
 
     student_payload = {
         "student_id": student_id,
@@ -102,6 +116,14 @@ try:
         "records": [{"student_id": student_id, "status": "Present"}]
     }
     status_code, body = api_call("/api/attendance", "POST", attendance_payload)
+    assert status_code == 200, body.decode("utf-8")
+
+    second_subject_attendance = {
+        "date": attendance_payload["date"],
+        "subject_id": second_subject_id,
+        "records": [{"student_id": student_id, "status": "Absent"}]
+    }
+    status_code, body = api_call("/api/attendance", "POST", second_subject_attendance)
     assert status_code == 200, body.decode("utf-8")
 
     query = f"?date=2026-09-29&subject_id={subject_id}"
@@ -129,6 +151,8 @@ try:
     assert workbook.active.cell(row=5, column=2).value == student_id
     print("[OK] Student + Subject + Attendance + Analysis + Report + Excel workflow")
 finally:
+    if second_subject_created:
+        api_call(f"/api/subjects/{second_subject_id}", "DELETE")
     if subject_created:
         api_call(f"/api/subjects/{subject_id}", "DELETE")
     if student_created:

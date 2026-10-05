@@ -6,31 +6,141 @@
   <title>Set Theory & Venn Diagram - Sandip University Attendance Analyzer</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .venn-circle-a {
-      fill: rgba(37, 99, 235, 0.22);
-      stroke: #1d4ed8;
-      stroke-width: 2.5;
-      cursor: pointer;
-      transition: fill 0.2s;
+    /* ── Dynamic Venn Diagram ── */
+    .venn-wrap {
+      position: relative;
+      width: 100%;
+      min-height: 340px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
     }
-    .venn-circle-b {
-      fill: rgba(168, 85, 247, 0.22);
-      stroke: #7e22ce;
-      stroke-width: 2.5;
-      cursor: pointer;
-      transition: fill 0.2s;
+    #venn-canvas-svg {
+      width: 100%;
+      max-width: 700px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+      overflow: visible;
     }
-    .venn-circle-a:hover { fill: rgba(37, 99, 235, 0.35); }
-    .venn-circle-b:hover { fill: rgba(168, 85, 247, 0.35); }
-    
-    .venn-region-btn {
-      cursor: pointer;
+    .venn-set-circle,
+    .venn-region-highlight,
+    .venn-highlight-universe {
+      transition: cx 0.45s cubic-bezier(.4,0,.2,1),
+                  r 0.45s cubic-bezier(.4,0,.2,1);
+    }
+    .venn-set-circle {
+      stroke-width: 2;
+      stroke: #ffffff;
+    }
+    .venn-region-highlight {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .venn-region-highlight.active { opacity: 0.22; }
+    .venn-highlight-universe {
+      fill: none;
+      stroke: #0f172a;
+      stroke-width: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .venn-highlight-universe.active {
+      stroke-width: 5;
+      opacity: 1;
+    }
+    .venn-region-btn { cursor: pointer; }
+    .venn-region-btn:hover text { filter: drop-shadow(0 1px 2px rgba(15, 23, 42, .45)); }
+    .venn-label-group text { text-anchor: middle; }
+    .venn-count-label {
+      font: 800 25px/1 sans-serif;
+      fill: #0f172a;
+      paint-order: stroke;
+      stroke: #ffffff;
+      stroke-width: 3px;
+      stroke-linejoin: round;
+    }
+    .venn-sublabel {
+      font: 700 12px/1 sans-serif;
+      fill: #172554;
+      paint-order: stroke;
+      stroke: #ffffff;
+      stroke-width: 2.5px;
+      stroke-linejoin: round;
+    }
+    .venn-universe-label {
+      font: 800 13px/1 sans-serif;
+      fill: #334155;
+    }
+    .venn-outside-label {
+      font: 700 12px/1 sans-serif;
+      fill: #475569;
+      text-anchor: middle;
+    }
+    .venn-universe-count {
+      font: 800 13px/1 sans-serif;
+      fill: #334155;
+      text-anchor: end;
+    }
+    /* Set-relation badge strip */
+    .set-relation-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      justify-content: center;
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      width: 100%;
+    }
+    .rel-badge {
+      font-size: 0.78rem;
       font-weight: 700;
-      user-select: none;
+      padding: 0.3rem 0.75rem;
+      border-radius: 20px;
+      border: 1.5px solid;
+      letter-spacing: 0.02em;
+      transition: transform 0.2s, background 0.2s;
     }
-    .venn-region-btn:hover text {
+    .rel-badge.active  { transform: scale(1.08); }
+    .rel-badge.rel-true  { background: #ecfdf5; color: #166534; border-color: #86efac; }
+    .rel-badge.rel-false { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+    .rel-badge.rel-info  { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
+    /* legend */
+    .venn-legend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 1rem;
+      font-size: 0.83rem;
+      font-weight: 600;
+    }
+    .venn-legend-row span {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+    .venn-legend-dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    /* SVG text styling */
+    .venn-count-text {
+      font-size: 22px;
       font-weight: 800;
-      fill: #000;
+      pointer-events: none;
+    }
+    .venn-sublabel {
+      font-size: 11px;
+      font-weight: 600;
+      pointer-events: none;
     }
   </style>
 </head>
@@ -42,15 +152,7 @@
       <button class="hamburger-btn" id="sidebar-toggle" title="Toggle Sidebar">☰</button>
       <div class="univ-brand">
         <div class="univ-logo-badge">
-          <div class="univ-emblem">🎓</div>
-          <div class="univ-title-box">
-            <span class="univ-name">SANDIP</span>
-            <span class="univ-sub">UNIVERSITY &bull; UGC Recognised</span>
-          </div>
-          <div class="naac-badge">
-            <span>NAAC</span>
-            <span class="naac-grade">A</span>
-          </div>
+          <img src="assets/sandip-banner.jpg" alt="Sandip University - NAAC Grade A" class="univ-banner-img">
         </div>
       </div>
     </div>
@@ -258,58 +360,67 @@
         </div>
         <div class="panel-body">
           <div class="venn-container">
-            <svg class="venn-svg" viewBox="0 0 540 320" xmlns="http://www.w3.org/2000/svg">
-              <!-- Universal Set Rectangle U -->
-              <rect x="15" y="15" width="510" height="290" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2" />
-              <text x="32" y="44" font-family="sans-serif" font-size="14" font-weight="700" fill="#334155">Universal Set (U)</text>
-              <text id="venn-text-outside" x="32" y="280" font-family="sans-serif" font-size="12" font-weight="600" fill="#64748b" onclick="selectVennRegion('neither')" class="venn-region-btn">
-                Outside (Neither) = 0
-              </text>
+            <svg id="venn-canvas-svg" viewBox="0 0 580 300" role="img" aria-label="Interactive Venn diagram of sets A and B" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <clipPath id="venn-clip-a" clipPathUnits="userSpaceOnUse">
+                  <circle id="venn-clip-circle-a" cx="220" cy="150" r="125" />
+                </clipPath>
+                <mask id="venn-mask-a-only" maskUnits="userSpaceOnUse" x="0" y="0" width="580" height="300">
+                  <rect x="0" y="0" width="580" height="300" fill="#fff" />
+                  <circle id="venn-mask-exclude-b" cx="360" cy="150" r="125" fill="#000" />
+                </mask>
+                <mask id="venn-mask-b-only" maskUnits="userSpaceOnUse" x="0" y="0" width="580" height="300">
+                  <rect x="0" y="0" width="580" height="300" fill="#fff" />
+                  <circle id="venn-mask-exclude-a" cx="220" cy="150" r="125" fill="#000" />
+                </mask>
+                <mask id="venn-mask-neither" maskUnits="userSpaceOnUse" x="0" y="0" width="580" height="300">
+                  <rect x="0" y="0" width="580" height="300" fill="#fff" />
+                  <circle id="venn-mask-neither-exclude-a" cx="220" cy="150" r="125" fill="#000" />
+                  <circle id="venn-mask-neither-exclude-b" cx="360" cy="150" r="125" fill="#000" />
+                </mask>
+              </defs>
+              <rect id="venn-highlight-universe" class="venn-highlight-universe" x="15" y="12" width="550" height="276" rx="16" />
 
-              <!-- Set A Circle (Blue) -->
-              <circle cx="210" cy="155" r="95" class="venn-circle-a" onclick="selectVennRegion('only_A')" />
-              <!-- Set B Circle (Purple) -->
-              <circle cx="330" cy="155" r="95" class="venn-circle-b" onclick="selectVennRegion('only_B')" />
+              <rect id="venn-highlight-neither" class="venn-region-highlight" x="15" y="12" width="550" height="276" rx="16" fill="#d8eee2" mask="url(#venn-mask-neither)" />
+              <circle id="venn-circle-a" class="venn-set-circle venn-region-btn" cx="220" cy="150" r="125" fill="#8fe1e4" fill-opacity="0.9" mask="url(#venn-mask-a-only)" onclick="selectVennRegion('only_A')" />
+              <circle id="venn-circle-b" class="venn-set-circle venn-region-btn" cx="360" cy="150" r="125" fill="#f5e99a" fill-opacity="0.9" mask="url(#venn-mask-b-only)" onclick="selectVennRegion('only_B')" />
+              <circle id="venn-inter-fill" class="venn-set-circle venn-region-btn" cx="360" cy="150" r="125" fill="#93d9b3" fill-opacity="0.96" clip-path="url(#venn-clip-a)" onclick="selectVennRegion('intersection')" />
 
-              <!-- Headers -->
-              <text x="160" y="85" font-family="sans-serif" font-size="14" font-weight="700" fill="#1d4ed8" text-anchor="middle" id="venn-label-a">Set A (Present)</text>
-              <text x="380" y="85" font-family="sans-serif" font-size="14" font-weight="700" fill="#7e22ce" text-anchor="middle" id="venn-label-b">Set B (Absent)</text>
+              <circle id="venn-highlight-only-a" class="venn-region-highlight" cx="220" cy="150" r="125" fill="#36bfc5" mask="url(#venn-mask-a-only)" />
+              <circle id="venn-highlight-only-b" class="venn-region-highlight" cx="360" cy="150" r="125" fill="#e3c82f" mask="url(#venn-mask-b-only)" />
+              <circle id="venn-highlight-intersection" class="venn-region-highlight" cx="360" cy="150" r="125" fill="#43b979" clip-path="url(#venn-clip-a)" />
 
-              <!-- Region: Only A (A - B or Present) -->
-              <g onclick="selectVennRegion('only_A')" class="venn-region-btn">
-                <text id="venn-text-only-a" x="165" y="160" font-family="sans-serif" font-size="24" font-weight="bold" fill="#1d4ed8" text-anchor="middle">0</text>
-                <text id="venn-sublabel-a" x="165" y="180" font-family="sans-serif" font-size="11" fill="#1e40af" text-anchor="middle">Present (A)</text>
+              <g class="venn-region-btn venn-label-group" onclick="selectVennRegion('only_A')" role="button" tabindex="0" aria-label="Select only A">
+                <text id="venn-text-only-a" x="180" y="145" class="venn-count-label">0</text>
+                <text id="venn-sublabel-a" x="180" y="169" class="venn-sublabel">Only A</text>
               </g>
-
-              <!-- Region: Intersection (A ∩ B) -->
-              <g onclick="selectVennRegion('intersection')" class="venn-region-btn">
-                <text id="venn-text-intersection" x="270" y="160" font-family="sans-serif" font-size="24" font-weight="bold" fill="#0f172a" text-anchor="middle">0</text>
-                <text id="venn-sublabel-inter" x="270" y="180" font-family="sans-serif" font-size="11" font-weight="700" fill="#0f172a" text-anchor="middle">A &cap; B (∅)</text>
+              <g class="venn-region-btn venn-label-group" onclick="selectVennRegion('intersection')" role="button" tabindex="0" aria-label="Select the intersection">
+                <text id="venn-text-intersection" x="290" y="145" class="venn-count-label">0</text>
+                <text id="venn-sublabel-inter" x="290" y="169" class="venn-sublabel">A ∩ B</text>
               </g>
-
-              <!-- Region: Only B (B - A or Absent) -->
-              <g onclick="selectVennRegion('only_B')" class="venn-region-btn">
-                <text id="venn-text-only-b" x="375" y="160" font-family="sans-serif" font-size="24" font-weight="bold" fill="#7e22ce" text-anchor="middle">0</text>
-                <text id="venn-sublabel-b" x="375" y="180" font-family="sans-serif" font-size="11" fill="#6b21a8" text-anchor="middle">Absent (B)</text>
+              <g class="venn-region-btn venn-label-group" onclick="selectVennRegion('only_B')" role="button" tabindex="0" aria-label="Select only B">
+                <text id="venn-text-only-b" x="400" y="145" class="venn-count-label">0</text>
+                <text id="venn-sublabel-b" x="400" y="169" class="venn-sublabel">Only B</text>
               </g>
             </svg>
+            <div id="set-relation-strip" class="set-relation-strip" aria-live="polite"></div>
 
             <!-- Venn Diagram Legend -->
             <div id="venn-legend-container" style="display: flex; flex-wrap: wrap; gap: 1.25rem; justify-content: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; width: 100%;">
               <div onclick="selectVennRegion('only_A')" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600;">
-                <span style="width: 16px; height: 16px; border-radius: 4px; background: rgba(37, 99, 235, 0.4); border: 1px solid #1d4ed8; display: inline-block;"></span>
+                <span style="width: 16px; height: 16px; border-radius: 4px; background: #8fe1e4; border: 1px solid #58bfc4; display: inline-block;"></span>
                 <span id="legend-text-a">Set A: Present Students</span>
               </div>
               <div onclick="selectVennRegion('intersection')" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600;">
-                <span style="width: 16px; height: 16px; border-radius: 4px; background: #93c5fd; border: 1px solid #1d4ed8; display: inline-block;"></span>
-                <span id="legend-text-inter">A &cap; B: Disjoint Set (∅)</span>
+                <span style="width: 16px; height: 16px; border-radius: 4px; background: #93d9b3; border: 1px solid #43b979; display: inline-block;"></span>
+                <span id="legend-text-inter">A &cap; B: Shared Students</span>
               </div>
               <div onclick="selectVennRegion('only_B')" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600;">
-                <span style="width: 16px; height: 16px; border-radius: 4px; background: rgba(168, 85, 247, 0.4); border: 1px solid #7e22ce; display: inline-block;"></span>
+                <span style="width: 16px; height: 16px; border-radius: 4px; background: #f5e99a; border: 1px solid #d6c457; display: inline-block;"></span>
                 <span id="legend-text-b">Set B: Absent Students</span>
               </div>
               <div onclick="selectVennRegion('neither')" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600;">
-                <span style="width: 16px; height: 16px; border-radius: 4px; background: #f8fafc; border: 1px solid #cbd5e1; display: inline-block;"></span>
+                <span style="width: 16px; height: 16px; border-radius: 4px; background: #d8eee2; border: 1px solid #a7d6bb; display: inline-block;"></span>
                 <span id="legend-text-neither">Outside: U - (A &cup; B)</span>
               </div>
             </div>

@@ -101,6 +101,50 @@ def init_db():
                 print(f"[Database] Successfully initialized MySQL database '{DB_NAME}' from attendance.sql!")
             else:
                 print(f"[Database] Connected to MySQL '{DB_NAME}'. Tables verified.")
+
+            cursor.execute("""
+                SELECT COUNT(*) AS column_count
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'attendance'
+                  AND column_name = 'subject_id'
+            """)
+            if cursor.fetchone()["column_count"] == 0:
+                cursor.execute("""
+                    ALTER TABLE attendance
+                    ADD COLUMN subject_id VARCHAR(30) NOT NULL DEFAULT 'SUB001'
+                    AFTER student_id
+                """)
+
+            cursor.execute("""
+                SELECT index_name,
+                       GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',')
+                           AS indexed_columns
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'attendance'
+                  AND non_unique = 0
+                GROUP BY index_name
+            """)
+            unique_indexes = cursor.fetchall()
+            legacy_indexes = [
+                row["index_name"] for row in unique_indexes
+                if row["indexed_columns"] == "student_id,attendance_date"
+            ]
+            for index_name in legacy_indexes:
+                escaped_name = index_name.replace("`", "``")
+                cursor.execute(f"ALTER TABLE attendance DROP INDEX `{escaped_name}`")
+
+            has_subject_date_index = any(
+                row["indexed_columns"] == "student_id,subject_id,attendance_date"
+                for row in unique_indexes
+            )
+            if not has_subject_date_index:
+                cursor.execute("""
+                    ALTER TABLE attendance
+                    ADD UNIQUE KEY unique_student_subject_date
+                        (student_id, subject_id, attendance_date)
+                """)
         conn.close()
         ACTIVE_DB_TYPE = "mysql"
         return True, "MySQL database initialized and ready."
@@ -166,6 +210,54 @@ def init_db():
         # Ensure any records with NULL subject_id are updated to 'SUB001'
         cursor.execute("UPDATE attendance SET subject_id = 'SUB001' WHERE subject_id IS NULL OR subject_id = '';")
         conn.commit()
+
+        # Older SQLite databases enforced one attendance record per student and
+        # date, which incorrectly prevents attendance in multiple subjects.
+        cursor.execute("PRAGMA index_list(attendance);")
+        attendance_indexes = cursor.fetchall()
+        rebuild_attendance = False
+        legacy_unique_indexes = []
+        for index in attendance_indexes:
+            if not index[2]:
+                continue
+            escaped_name = index[1].replace('"', '""')
+            cursor.execute(f'PRAGMA index_info("{escaped_name}");')
+            indexed_columns = [column[2] for column in cursor.fetchall()]
+            if indexed_columns == ["student_id", "attendance_date"]:
+                if index[3] == "u":
+                    rebuild_attendance = True
+                else:
+                    legacy_unique_indexes.append(index[1])
+
+        if rebuild_attendance:
+            cursor.execute("DROP TABLE IF EXISTS attendance_schema_migration;")
+            cursor.execute("""
+                CREATE TABLE attendance_schema_migration (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    student_id TEXT NOT NULL,
+                    subject_id TEXT NOT NULL DEFAULT 'SUB001',
+                    attendance_date TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+                    FOREIGN KEY (subject_id) REFERENCES subjects(subject_id) ON DELETE CASCADE
+                );
+            """)
+            cursor.execute("""
+                INSERT INTO attendance_schema_migration
+                    (id, student_id, subject_id, attendance_date, status, created_at)
+                SELECT id, student_id, COALESCE(NULLIF(subject_id, ''), 'SUB001'),
+                       attendance_date, status, created_at
+                FROM attendance;
+            """)
+            cursor.execute("DROP TABLE attendance;")
+            cursor.execute(
+                "ALTER TABLE attendance_schema_migration RENAME TO attendance;"
+            )
+
+        for index_name in legacy_unique_indexes:
+            escaped_name = index_name.replace('"', '""')
+            cursor.execute(f'DROP INDEX "{escaped_name}";')
 
         # Ensure unique index on (student_id, subject_id, attendance_date)
         cursor.execute("""

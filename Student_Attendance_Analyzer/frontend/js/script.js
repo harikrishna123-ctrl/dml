@@ -1001,39 +1001,132 @@ function renderVennDiagram(data) {
   const venn = data.venn_diagram;
   if (!venn) return;
 
-  const onlyA_elem = document.getElementById("venn-text-only-a");
-  const inter_elem = document.getElementById("venn-text-intersection");
-  const onlyB_elem = document.getElementById("venn-text-only-b");
-  const outside_elem = document.getElementById("venn-text-outside");
+  // ── Read counts ──────────────────────────────────────────────────────────
+  const nOnlyA     = venn.only_A        ? venn.only_A.count        : 0;
+  const nInter     = venn.intersection  ? venn.intersection.count  : 0;
+  const nOnlyB     = venn.only_B        ? venn.only_B.count        : 0;
+  const nNeither   = venn.neither       ? venn.neither.count       : 0;
+  const nA         = nOnlyA + nInter;   // |A|
+  const nB         = nOnlyB + nInter;   // |B|
+  const nU         = data.universal_count || (nA + nB - nInter + nNeither) || 1;
 
-  if (onlyA_elem) onlyA_elem.textContent = `${venn.only_A ? venn.only_A.count : 0}`;
-  if (inter_elem) inter_elem.textContent = `${venn.intersection ? venn.intersection.count : 0}`;
-  if (onlyB_elem) onlyB_elem.textContent = `${venn.only_B ? venn.only_B.count : 0}`;
-  if (outside_elem) outside_elem.textContent = `Outside = ${venn.neither ? venn.neither.count : 0}`;
+  // ── Update count text nodes ───────────────────────────────────────────────
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setText("venn-text-only-a",      nOnlyA);
+  setText("venn-text-intersection", nInter);
+  setText("venn-text-only-b",      nOnlyB);
 
-  // Update dynamic labels in SVG
-  const lblA = document.getElementById("venn-label-a");
-  const lblB = document.getElementById("venn-label-b");
+  // Use the equal-circle layout from the reference; counts remain data-driven.
+  const rA = 125;
+  const rB = 125;
+  const cxA = 220;
+  const cxB = 360;
+  const labelXA = 180;
+  const labelXB = 400;
+  const interXMid = 290;
+  const circleY = 150;
+
+  // ── Animate the SVG elements ──────────────────────────────────────────────
+  function setAttr(id, attrs) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+  }
+
+  setAttr("venn-circle-a", { cx: cxA, cy: circleY, r: rA });
+  setAttr("venn-circle-b", { cx: cxB, cy: circleY, r: rB });
+  setAttr("venn-inter-fill", { cx: cxB, cy: circleY, r: rB });
+  setAttr("venn-clip-circle-a", { cx: cxA, cy: circleY, r: rA });
+  setAttr("venn-mask-exclude-a", { cx: cxA, cy: circleY, r: rA });
+  setAttr("venn-mask-exclude-b", { cx: cxB, cy: circleY, r: rB });
+  setAttr("venn-mask-neither-exclude-a", { cx: cxA, cy: circleY, r: rA });
+  setAttr("venn-mask-neither-exclude-b", { cx: cxB, cy: circleY, r: rB });
+  setAttr("venn-highlight-only-a", { cx: cxA, cy: circleY, r: rA });
+  setAttr("venn-highlight-only-b", { cx: cxB, cy: circleY, r: rB });
+  setAttr("venn-highlight-intersection", { cx: cxB, cy: circleY, r: rB });
+  setAttr("venn-highlight-neither", { x: 15, y: 12, width: 550, height: 276 });
+
+  // Reposition count labels
+  setAttr("venn-text-only-a",       { x: labelXA });
+  setAttr("venn-sublabel-a",        { x: labelXA });
+  setAttr("venn-text-intersection", { x: interXMid });
+  setAttr("venn-sublabel-inter",    { x: interXMid });
+  setAttr("venn-text-only-b",       { x: labelXB });
+  setAttr("venn-sublabel-b",        { x: labelXB });
+
+  // ── Update human-readable labels ─────────────────────────────────────────
   const subA = document.getElementById("venn-sublabel-a");
   const subInter = document.getElementById("venn-sublabel-inter");
   const subB = document.getElementById("venn-sublabel-b");
+  const legendInter = document.getElementById("legend-text-inter");
 
   if (data.mode === "comparison") {
-    const s1 = data.subject1 ? data.subject1.subject_code : "Set A";
-    const s2 = data.subject2 ? data.subject2.subject_code : "Set B";
-    if (lblA) lblA.textContent = `Set A (${s1})`;
-    if (lblB) lblB.textContent = `Set B (${s2})`;
-    if (subA) subA.textContent = `Only ${s1} (A - B)`;
-    if (subInter) subInter.textContent = `Both (${s1} ∩ ${s2})`;
-    if (subB) subB.textContent = `Only ${s2} (B - A)`;
+    const s1 = data.subject1 ? data.subject1.subject_code : "Sub A";
+    const s2 = data.subject2 ? data.subject2.subject_code : "Sub B";
+    if (subA) subA.textContent = "Only A";
+    if (subInter) subInter.textContent = "A \u2229 B";
+    if (subB) subB.textContent = "Only B";
+    if (legendInter) legendInter.textContent = `A \u2229 B: ${s1} and ${s2}`;
+    const modeLabel = document.getElementById("venn-mode-label");
+    if (modeLabel) modeLabel.textContent = `${s1} vs ${s2} \u2014 Multi-Subject Comparison`;
   } else {
-    const sName = data.subject ? data.subject.subject_code : "Course";
-    if (lblA) lblA.textContent = `Set A: Present (${sName})`;
-    if (lblB) lblB.textContent = `Set B: Absent (${sName})`;
-    if (subA) subA.textContent = `Present (A)`;
-    if (subInter) subInter.textContent = `A ∩ B (∅)`;
-    if (subB) subB.textContent = `Absent (B)`;
+    if (subA) subA.textContent = `Present`;
+    if (subInter) subInter.textContent = `A \u2229 B (\u2205)`;
+    if (subB) subB.textContent = `Absent`;
+    if (legendInter) legendInter.textContent = "A \u2229 B: Empty Set (\u2205)";
+    const modeLabel = document.getElementById("venn-mode-label");
+    if (modeLabel) modeLabel.textContent = "Single-subject attendance";
   }
+
+  // ── Set Relation Badges ──────────────────────────────────────────────────
+  const strip = document.getElementById("set-relation-strip");
+  if (!strip) return;
+
+  if (data.mode !== "comparison") {
+    // In single mode A ∩ B = ∅ always (present vs absent)
+    strip.innerHTML = `
+      <span class="rel-badge rel-true">A \u222a B = U \u2714</span>
+      <span class="rel-badge rel-true">A \u2229 B = \u2205 \u2714</span>
+      <span class="rel-badge rel-info">n(A) = ${nA} &nbsp;|&nbsp; n(B) = ${nB} &nbsp;|&nbsp; n(U) = ${nU}</span>
+    `;
+    return;
+  }
+
+  // Comparison mode — compute all set relations
+  const relations = [];
+
+  // A = B (equal sets)
+  const isEqual = nOnlyA === 0 && nOnlyB === 0 && nInter > 0;
+  relations.push({ label: `A = B`, val: isEqual });
+
+  // A \u2282 B (proper subset)
+  const isASubB = nOnlyA === 0 && nInter > 0 && nOnlyB > 0;
+  relations.push({ label: `A \u2282 B`, val: isASubB });
+
+  // B \u2282 A (proper subset)
+  const isBSubA = nOnlyB === 0 && nInter > 0 && nOnlyA > 0;
+  relations.push({ label: `B \u2282 A`, val: isBSubA });
+
+  // Disjoint
+  const isDisjoint = nInter === 0;
+  relations.push({ label: `A \u2229 B = \u2205 (Disjoint)`, val: isDisjoint });
+
+  // Overlapping (non-empty intersection, neither is subset of other)
+  const isOverlapping = nInter > 0 && !isEqual && !isASubB && !isBSubA;
+  relations.push({ label: `A \u2229 B \u2260 \u2205 (Overlap)`, val: isOverlapping });
+
+  // Union = U?
+  const isUnionU = (nOnlyA + nInter + nOnlyB) >= nU;
+  relations.push({ label: `A \u222a B = U`, val: isUnionU });
+
+  // Cardinality info
+  const s1code = data.subject1 ? data.subject1.subject_code : "A";
+  const s2code = data.subject2 ? data.subject2.subject_code : "B";
+
+  strip.innerHTML = relations.map(r =>
+    `<span class="rel-badge ${r.val ? 'rel-true' : 'rel-false'}">${r.label} ${r.val ? '\u2714' : '\u2718'}</span>`
+  ).join("") +
+  `<span class="rel-badge rel-info">n(${s1code})=${nA} &nbsp;n(${s2code})=${nB} &nbsp;n(\u2229)=${nInter} &nbsp;n(U)=${nU}</span>`;
 }
 
 function selectVennRegion(regionKey) {
@@ -1052,10 +1145,41 @@ function selectVennRegion(regionKey) {
   }
 }
 
+function highlightVennSelection(key) {
+  const regionMap = {
+    "U": ["universe", "only-a", "intersection", "only-b", "neither"],
+    "A": ["only-a", "intersection"],
+    "B": ["only-b", "intersection"],
+    "union": ["only-a", "intersection", "only-b"],
+    "intersection": ["intersection"],
+    "A-B": ["only-a"],
+    "only_A": ["only-a"],
+    "B-A": ["only-b"],
+    "only_B": ["only-b"],
+    "A'": ["only-b", "neither"],
+    "B'": ["only-a", "neither"],
+    "neither": ["neither"]
+  };
+  const selected = new Set(regionMap[key] || []);
+  const vennRegionIds = {
+    "universe": "venn-highlight-universe",
+    "only-a": "venn-highlight-only-a",
+    "intersection": "venn-highlight-intersection",
+    "only-b": "venn-highlight-only-b",
+    "neither": "venn-highlight-neither"
+  };
+
+  Object.entries(vennRegionIds).forEach(([region, id]) => {
+    const element = document.getElementById(id);
+    if (element) element.classList.toggle("active", selected.has(region));
+  });
+}
+
 function displaySetDetails(key, title, studentList) {
   const titleElem = document.getElementById("set-details-title");
   const countElem = document.getElementById("set-details-count");
   const bodyElem = document.getElementById("set-details-table-body");
+  highlightVennSelection(key);
 
   // Highlight active set card
   document.querySelectorAll(".set-card").forEach(c => {
@@ -1067,7 +1191,8 @@ function displaySetDetails(key, title, studentList) {
       "U": "set-u", "A": "set-a", "B": "set-b",
       "union": "set-union", "intersection": "set-intersection",
       "A-B": "set-a-minus-b", "only_A": "set-a-minus-b",
-      "B-A": "set-b-minus-a", "only_B": "set-b-minus-a"
+      "B-A": "set-b-minus-a", "only_B": "set-b-minus-a",
+      "A'": "set-comp-a", "B'": "set-comp-b"
     };
     const cardId = cardMap[key];
     if (cardId) {

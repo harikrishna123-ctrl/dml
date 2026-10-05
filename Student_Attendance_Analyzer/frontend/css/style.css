@@ -104,70 +104,27 @@ body {
 .univ-logo-badge {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
 }
 
-.univ-emblem {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #0f172a;
-  color: #fbbf24;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1.1rem;
-  border: 2px solid #fbbf24;
-}
-
-.univ-title-box {
-  display: flex;
-  flex-direction: column;
-}
-
-.univ-name {
-  font-size: 1.05rem;
-  font-weight: 900;
-  color: #991b1b; /* Crimson University Brand */
-  letter-spacing: 0.02em;
-  line-height: 1.1;
-}
-
-.univ-sub {
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: #64748b;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.naac-badge {
-  background: #991b1b;
-  color: #ffffff;
-  padding: 0.15rem 0.45rem;
-  border-radius: 4px;
-  font-size: 0.65rem;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  border: 1px solid #7f1d1d;
-  margin-left: 0.35rem;
-}
-
-.naac-grade {
+.univ-banner-img {
+  height: 44px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  /* White background so the logo looks clean on any topbar color */
   background: #ffffff;
-  color: #991b1b;
-  border-radius: 50%;
-  width: 14px;
-  height: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.6rem;
-  font-weight: 900;
+  border-radius: 6px;
+  padding: 3px 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
 }
+
+/* Legacy classes kept for compatibility */
+.univ-emblem { display: none; }
+.univ-title-box { display: none; }
+.univ-name { display: none; }
+.univ-sub { display: none; }
+.naac-badge { display: none; }
+.naac-grade { display: none; }
 
 .topbar-right {
   display: flex;
